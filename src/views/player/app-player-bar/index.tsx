@@ -7,11 +7,13 @@ import {
   PlayerBarWrapper
 } from './style'
 import { Link } from 'react-router-dom'
+import { message } from 'antd'
 import Slider from 'rc-slider'
 import 'rc-slider/assets/index.css'
-import { ShallowEqualApp, useAppSelector } from '@/store'
+import { ShallowEqualApp, useAppDispatch, useAppSelector } from '@/store'
 import { formatTime, getImageSize } from '@/utils/format'
 import { getSongPlayUrl } from '@/utils/handle-player'
+import { changeLyricIndexAction } from '../store/player'
 
 interface IProps {
   children?: ReactNode
@@ -27,12 +29,16 @@ const AppPlayerBar: FC<IProps> = () => {
   const audioRef = useRef<HTMLAudioElement>(null)
   // 从redux中获取数据
 
-  const { currentSong } = useAppSelector(
+  const { currentSong, lyrics, lyricIndex } = useAppSelector(
     (state) => ({
-      currentSong: state.player.currentSong
+      currentSong: state.player.currentSong,
+      lyrics: state.player.lyrics,
+      lyricIndex: state.player.lyricIndex
     }),
     ShallowEqualApp
   )
+
+  const dispatch = useAppDispatch()
 
   // 组件内的副作用操作
   useEffect(() => {
@@ -62,8 +68,29 @@ const AppPlayerBar: FC<IProps> = () => {
       const progress = (currentTime / duration) * 100
       setProgress(progress)
       setCurrentTime(currentTime)
-      setIsSliding(false)
     }
+
+    // 3.根据当前的时间匹配相应的歌词
+    // currentTime/lyrics
+    let index = lyrics.length - 1
+    for (let i = 0; i < lyrics.length; i++) {
+      const lyric = lyrics[i]
+      if (lyric.time > currentTime) {
+        index = i - 1
+        break
+      }
+    }
+
+    // 4.匹配上对应的歌词的index
+    // console.log(lyrics[index]?.text)
+    if (lyricIndex === index || index === -1) return
+    dispatch(changeLyricIndexAction(index))
+    const currentLyric = lyrics[index]
+    message.open({
+      content: currentLyric.text,
+      duration: 0,
+      key: 'lyric'
+    })
   }
 
   // 组件内部的事件处理
@@ -97,6 +124,7 @@ const AppPlayerBar: FC<IProps> = () => {
     // 3.currentTime/progress
     setCurrentTime(currentTime)
     setProgress(value)
+    setIsSliding(false)
   }
 
   return (
